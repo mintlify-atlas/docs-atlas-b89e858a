@@ -99,65 +99,56 @@ Because the update uses the functional form of `setFavorite`, it always operates
 
 ## isFavorite
 
-`isFavorite(id)` returns `true` if the given ID is in the favorites list. It's used in `RecipeDetailCard` to set the button label and active style:
+`isFavorite(id)` returns `true` if the given ID is in the favorites list. It's used in `RecipeDetailCard` to control the button label:
 
 ```jsx
-const { toggleFavorite, isFavorite } = useFavorites()
-const favorite = isFavorite(recipe.id)
+const { isFavorite, toggleFavorite } = useFavorites()
 
-<button
-  className={`favorite-btn ${favorite ? 'active' : ''}`}
-  onClick={() => toggleFavorite(recipe.id)}
->
-  {favorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+<button onClick={() => toggleFavorite(recipe.id)}>
+  {isFavorite(recipe.id) ? "💔 Remove from Favs" : "❤️ Add to Favs"}
 </button>
 ```
 
 ## Favorites page
 
-The **Favorites** page lists all your saved recipes. Each ID in the `favorites` array is rendered by a `FavoriteItem` component that fetches and displays the full recipe card.
-
-<CodeGroup>
+The **Favorites** page reads the list of favorite IDs from context, then fetches all their full recipe objects in parallel using `Promise.all` and `getRecipeById`. The results are stored in local state and passed to `RecipeList` for rendering.
 
 ```jsx Favorites.jsx
-import { useFavorites } from '../context/FavoritesContext'
-import useRecipeDetail from '../hooks/useRecipeDetail'
-import RecipeCard from '../components/RecipeCard'
-
-const FavoriteItem = ({ id }) => {
-  const { recipe, loading } = useRecipeDetail(id)
-  if (loading) return <p>Loading...</p>
-  if (!recipe) return null
-  return (
-    <RecipeCard
-      id={recipe.id}
-      name={recipe.name}
-      picture={recipe.picture}
-      category={recipe.category}
-    />
-  )
-}
+import React, { useEffect, useState } from "react"
+import { useFavorites } from "../context/FavoritesContext"
+import { getRecipeById } from "../services/api"
+import RecipeList from "../components/RecipeList"
 
 const Favorites = () => {
   const { favorites } = useFavorites()
+  const [recipes, setRecipes] = useState([])
 
-  if (!favorites.length) {
-    return (
-      <p>
-        You haven't saved any favorites yet. Browse recipes and click "Add to
-        Favorites"!
-      </p>
-    )
-  }
+  useEffect(() => {
+    if (!favorites.length) return
+
+    const fetchRecipe = async () => {
+      try {
+        const data = await Promise.all(
+          favorites.map(id => getRecipeById(id))
+        )
+        setRecipes(data)
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    fetchRecipe()
+  }, [favorites])
+
+  if (!favorites.length) return (
+    <p style={{ textAlign: "center", fontSize: "20px" }}>
+      No Has Añadido Nada a Favoritos
+    </p>
+  )
 
   return (
-    <div className="favorites">
-      <h2>My Favorites</h2>
-      <div className="recipe-list">
-        {favorites.map((id) => (
-          <FavoriteItem key={id} id={id} />
-        ))}
-      </div>
+    <div>
+      <RecipeList recipes={recipes} />
     </div>
   )
 }
@@ -165,22 +156,4 @@ const Favorites = () => {
 export default Favorites
 ```
 
-```jsx FavoriteItem.jsx
-const FavoriteItem = ({ id }) => {
-  const { recipe, loading } = useRecipeDetail(id)
-  if (loading) return <p>Loading...</p>
-  if (!recipe) return null
-  return (
-    <RecipeCard
-      id={recipe.id}
-      name={recipe.name}
-      picture={recipe.picture}
-      category={recipe.category}
-    />
-  )
-}
-```
-
-</CodeGroup>
-
-Each `FavoriteItem` uses the `useRecipeDetail` hook independently, so recipe cards load as their data arrives. If the favorites list is empty, a prompt is shown encouraging you to browse and save recipes.
+All saved recipe details are fetched together via `Promise.all`, so the grid populates in one batch. If no favorites have been saved, an empty-state message is shown.

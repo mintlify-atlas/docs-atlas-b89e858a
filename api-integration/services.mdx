@@ -297,19 +297,20 @@ flowchart TD
     ```
   </Tab>
   <Tab title="Hook catches">
-    ```javascript example hook
-    const [recipes, setRecipes] = useState([]);
-    const [apiError, setApiError] = useState(null);
-
-    const search = async (query) => {
+    ```javascript src/hooks/useRecipes.js (excerpt)
+    const fetchRecipes = async (search) => {
+      setLoading(true)
+      setRecipes([])
+      setApiError("")
       try {
-        const results = await getRecipeByName(query);
-        setRecipes(results);
-        setApiError(null);
+        const data = await getRecipeByName(search)
+        setRecipes(data)
       } catch (error) {
-        setApiError(error.message);
+        return setApiError(error.message)
+      } finally {
+        setLoading(false)
       }
-    };
+    }
     ```
   </Tab>
   <Tab title="Page renders">

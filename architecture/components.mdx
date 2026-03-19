@@ -5,15 +5,15 @@ description: 'Presentational components used across Recipe Hub pages.'
 
 All components live in `src/components/`. They are presentational by default — they receive props and render UI. The only exception is `RecipeDetailCard`, which reads from `FavoritesContext` directly.
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card title="NavBar" icon="navigation">
     Site-wide navigation links rendered in the app header.
   </Card>
   <Card title="Footer" icon="layout-bottom">
     Static copyright footer rendered on every page.
   </Card>
-  <Card title="SearchBar" icon="search">
-    Controlled search input with form submission and validation.
+  <Card title="SearchBar" icon="magnifying-glass">
+    Controlled search input with button click handler and validation.
   </Card>
   <Card title="RecipeCard" icon="square">
     Linked thumbnail card for a single recipe in a list.
@@ -24,7 +24,7 @@ All components live in `src/components/`. They are presentational by default —
   <Card title="RecipeDetailCard" icon="file-text">
     Full recipe view with ingredients, instructions, video, and favorite toggle.
   </Card>
-</Columns>
+</CardGroup>
 
 ---
 
@@ -35,22 +35,29 @@ Renders the primary navigation using `NavLink` from React Router. Active links r
 **Props:** none
 
 ```jsx src/components/NavBar.jsx
+import React from 'react'
 import { NavLink } from 'react-router-dom'
 import './NavBar.css'
 
 export const NavBar = () => {
   return (
     <nav>
-      <NavLink to="/" end>Home</NavLink>
-      <NavLink to="/favorites">Favorites</NavLink>
-      <NavLink to="/contact">Contact</NavLink>
+      <ul id="nav-principal">
+        <li>
+          <NavLink className={({ isActive }) => isActive ? "active" : ""} to="favorites">
+            Favorites💞
+          </NavLink>
+        </li>
+        <li><NavLink to="/">Home 🏠</NavLink></li>
+        <li><NavLink to="contact">Contact 📡</NavLink></li>
+      </ul>
     </nav>
   )
 }
 ```
 
 <Note>
-  The `end` prop on the Home link ensures it only appears active on exactly `/`, not on `/favorites` or other child paths.
+  `NavBar` is a named export (`export const NavBar`). Import it as `import { NavBar } from '../components/NavBar'`. The active class is applied manually via the `className` callback on the Favorites link.
 </Note>
 
 ---
@@ -79,46 +86,42 @@ export default Footer
 
 ## SearchBar
 
-Controlled form input for recipe search. Validates that the query is not empty before calling `onSearch`. Delegates error messaging to the parent via `setApiError`.
+Controlled search input. The parent (`Home`) owns the `search` state string and passes it down alongside a click handler. Empty-string validation happens in `Home.handleClick` before calling `fetchRecipes`.
 
 ### Props
 
 | Prop | Type | Description |
 |---|---|---|
-| `onSearch` | `(query: string) => void` | Called with the trimmed search string on valid submit |
-| `setApiError` | `(msg: string) => void` | Called with a validation message when the input is empty |
+| `search` | `string` | Controlled input value, owned by the parent |
+| `setSearch` | `(value: string) => void` | Updates the search string in parent state on every keystroke |
+| `onSearch` | `() => void` | Called when the **Buscar** button is clicked |
+| `error` | `string` | Validation error message to display below the input |
 
 ```jsx src/components/SearchBar.jsx
-import { useState } from 'react'
-import './SearchBar.css'
+import "./SearchBar.css"
 
-const SearchBar = ({ onSearch, setApiError }) => {
-  const [query, setQuery] = useState('')
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!query.trim()) {
-      setApiError('Please enter a recipe name to search.')
-      return
-    }
-    onSearch(query)
-  }
-
+export const SearchBar = ({ search, setSearch, onSearch, error }) => {
   return (
-    <form onSubmit={handleSubmit} className="search-bar">
-      <input
-        type="text"
-        placeholder="Search a recipe..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      <button type="submit">Search</button>
-    </form>
+    <div className="search-superior">
+      <div className="search-container">
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search Recipes..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <button onClick={onSearch}>Buscar</button>
+      </div>
+      {error && <p>{error}</p>}
+    </div>
   )
 }
-
-export default SearchBar
 ```
+
+<Note>
+  `SearchBar` is a named export (`export const SearchBar`). Import it as `import { SearchBar } from '../components/SearchBar'`. The component renders any non-empty `error` string below the input field.
+</Note>
 
 ---
 
@@ -216,50 +219,37 @@ Displays the full detail view of a recipe. This is the only component that reads
 | `ingredients` | `Array<{ name: string, measure: string }>` | List of ingredients with measures |
 
 ```jsx src/components/RecipeDetailCard.jsx
-import ReactPlayer from 'react-player'
-import { useFavorites } from '../context/FavoritesContext'
-import './RecipeDetailCard.css'
+import ReactPlayer from "react-player"
+import { useFavorites } from "../context/FavoritesContext"
+import "./RecipeDetailCard.css"
 
 const RecipeDetailCard = ({ recipe }) => {
-  const { toggleFavorite, isFavorite } = useFavorites()
-  const favorite = isFavorite(recipe.id)
-
+  const { isFavorite, toggleFavorite } = useFavorites()
   return (
     <div className="recipe-detail">
-      <h2>{recipe.name}</h2>
-      <img src={recipe.picture} alt={recipe.name} />
-      <span className="category">{recipe.category}</span>
-
-      <button
-        className={`favorite-btn ${favorite ? 'active' : ''}`}
-        onClick={() => toggleFavorite(recipe.id)}
-      >
-        {favorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+      <img src={recipe.picture} alt="" />
+      <h3>{recipe.name}</h3>
+      <p>{recipe.category}</p>
+      <h5>Ingredients:</h5>
+      <ul style={{ listStyle: "none" }}>
+        {recipe.ingredients?.map((ig, i) => (
+          <li key={i}>
+            {ig.name} - {ig.measure}
+          </li>
+        ))}
+      </ul>
+      <ReactPlayer src={recipe.video} controls width="100%" height="400px" />
+      <h4>{recipe.instructions}</h4>
+      <button onClick={() => toggleFavorite(recipe.id)}>
+        {isFavorite(recipe.id) ? "💔 Remove from Favs" : "❤️ Add to Favs"}
       </button>
-
-      <section className="ingredients">
-        <h3>Ingredients</h3>
-        <ul>
-          {recipe.ingredients.map((ing, i) => (
-            <li key={i}>{ing.measure} {ing.name}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="instructions">
-        <h3>Instructions</h3>
-        <p>{recipe.instructions}</p>
-      </section>
-
-      {recipe.video && (
-        <section className="video">
-          <h3>Video Tutorial</h3>
-          <ReactPlayer url={recipe.video} controls />
-        </section>
-      )}
     </div>
   )
 }
 
 export default RecipeDetailCard
 ```
+
+<Note>
+  The `ReactPlayer` is always rendered (not conditionally). It receives `src` (not `url`) and renders an embedded player. The video value from TheMealDB is the YouTube URL stored in `recipe.video`.
+</Note>

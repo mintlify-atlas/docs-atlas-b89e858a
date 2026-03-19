@@ -13,16 +13,17 @@ The `RecipeDetail` page reads the `id` parameter from the URL using React Router
 <CodeGroup>
 
 ```jsx RecipeDetail.jsx
-import { useParams } from 'react-router-dom'
-import RecipeDetailCard from '../components/RecipeDetailCard'
-import useRecipeDetail from '../hooks/useRecipeDetail'
+import React from "react"
+import { useParams } from "react-router-dom"
+import useRecipeDetail from "../hooks/useRecipeDetail"
+import RecipeDetailCard from "../components/RecipeDetailCard"
 
 const RecipeDetail = () => {
   const { id } = useParams()
-  const { recipe, loading, error } = useRecipeDetail(id)
+  const { recipe, loading, apiError } = useRecipeDetail(id)
 
-  if (loading) return <p>Loading recipe...</p>
-  if (error) return <p>{error}</p>
+  if (loading) return <p> Cargando... </p>
+  if (apiError) return <p style={{ color: "red" }}>{apiError}</p>
   if (!recipe) return null
 
   return <RecipeDetailCard recipe={recipe} />
@@ -32,31 +33,33 @@ export default RecipeDetail
 ```
 
 ```js useRecipeDetail.js
-import { useState, useEffect } from 'react'
-import { getRecipeById } from '../services/api'
+import { useEffect, useState } from "react"
+import { getRecipeById } from "../services/api"
 
 const useRecipeDetail = (id) => {
   const [recipe, setRecipe] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [apiError, setApiError] = useState("")
 
   useEffect(() => {
+    if (!id) return
     const fetchRecipe = async () => {
-      setLoading(true)
-      setError('')
       try {
+        setLoading(true)
+        setRecipe(null)
+        setApiError("")
         const data = await getRecipeById(id)
         setRecipe(data)
-      } catch (err) {
-        setError(err.message)
+      } catch (error) {
+        return setApiError(error.message)
       } finally {
         setLoading(false)
       }
     }
-    if (id) fetchRecipe()
+    fetchRecipe()
   }, [id])
 
-  return { recipe, loading, error }
+  return { recipe, loading, apiError }
 }
 
 export default useRecipeDetail
@@ -92,47 +95,30 @@ Each entry in `ingredients` has:
 `RecipeDetailCard` renders all the recipe content. It also connects to the favorites system via the `useFavorites` hook.
 
 ```jsx RecipeDetailCard.jsx
-import ReactPlayer from 'react-player'
-import { useFavorites } from '../context/FavoritesContext'
-import './RecipeDetailCard.css'
+import ReactPlayer from "react-player"
+import { useFavorites } from "../context/FavoritesContext"
+import "./RecipeDetailCard.css"
 
 const RecipeDetailCard = ({ recipe }) => {
-  const { toggleFavorite, isFavorite } = useFavorites()
-  const favorite = isFavorite(recipe.id)
-
+  const { isFavorite, toggleFavorite } = useFavorites()
   return (
     <div className="recipe-detail">
-      <h2>{recipe.name}</h2>
-      <img src={recipe.picture} alt={recipe.name} />
-      <span className="category">{recipe.category}</span>
-
-      <button
-        className={`favorite-btn ${favorite ? 'active' : ''}`}
-        onClick={() => toggleFavorite(recipe.id)}
-      >
-        {favorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+      <img src={recipe.picture} alt="" />
+      <h3>{recipe.name}</h3>
+      <p>{recipe.category}</p>
+      <h5>Ingredients:</h5>
+      <ul style={{ listStyle: "none" }}>
+        {recipe.ingredients?.map((ig, i) => (
+          <li key={i}>
+            {ig.name} - {ig.measure}
+          </li>
+        ))}
+      </ul>
+      <ReactPlayer src={recipe.video} controls width="100%" height="400px" />
+      <h4>{recipe.instructions}</h4>
+      <button onClick={() => toggleFavorite(recipe.id)}>
+        {isFavorite(recipe.id) ? "💔 Remove from Favs" : "❤️ Add to Favs"}
       </button>
-
-      <section className="ingredients">
-        <h3>Ingredients</h3>
-        <ul>
-          {recipe.ingredients.map((ing, i) => (
-            <li key={i}>{ing.measure} {ing.name}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="instructions">
-        <h3>Instructions</h3>
-        <p>{recipe.instructions}</p>
-      </section>
-
-      {recipe.video && (
-        <section className="video">
-          <h3>Video Tutorial</h3>
-          <ReactPlayer url={recipe.video} controls />
-        </section>
-      )}
     </div>
   )
 }
@@ -145,37 +131,32 @@ export default RecipeDetailCard
 The detail page is laid out in the following order:
 
 <Steps>
-  <Step title="Header image">
-    The recipe name is displayed as a heading, followed by the recipe photo (`recipe.picture`).
+  <Step title="Recipe image">
+    The meal thumbnail (`recipe.picture`) is rendered as an `<img>` at the top.
   </Step>
-  <Step title="Category tag">
-    A category label (e.g. **Chicken**, **Dessert**) is shown below the image.
-  </Step>
-  <Step title="Favorites button">
-    A toggle button lets you add or remove the recipe from your favorites. The button label and style change based on the current favorite state. See [Favorites](/features/favorites) for details.
+  <Step title="Name and category">
+    The recipe name appears as a `<h3>` heading, followed by the category as a `<p>` element.
   </Step>
   <Step title="Ingredients list">
-    Each ingredient is rendered as a list item combining `ing.measure` and `ing.name` — for example, "2 tbsp olive oil".
+    An unordered list renders each ingredient as `{ig.name} - {ig.measure}` — for example, "Olive Oil - 2 tbsp".
+  </Step>
+  <Step title="Video player">
+    A `ReactPlayer` is rendered unconditionally using the `recipe.video` YouTube URL and `src` prop. The player is 100% wide and 400px tall with controls enabled.
   </Step>
   <Step title="Instructions">
-    The full cooking instructions are displayed as a paragraph.
+    The full cooking instructions are displayed as a `<h4>` element.
   </Step>
-  <Step title="Video tutorial">
-    If `recipe.video` is present, a `ReactPlayer` embed is shown. If the recipe has no video, this section is hidden entirely.
+  <Step title="Favorites button">
+    A button toggles the recipe in/out of favorites. When already saved it reads "💔 Remove from Favs"; when not saved it reads "❤️ Add to Favs". See [Favorites](/features/favorites) for details.
   </Step>
 </Steps>
 
 ## Video playback
 
-Recipe Hub uses [ReactPlayer](https://github.com/cookpete/react-player) to embed YouTube video tutorials. It renders a responsive player with playback controls enabled.
+Recipe Hub uses [ReactPlayer](https://github.com/cookpete/react-player) to embed YouTube video tutorials. It uses the `src` prop (not `url`) and renders with controls, fixed at 400px height:
 
 ```jsx
-{recipe.video && (
-  <section className="video">
-    <h3>Video Tutorial</h3>
-    <ReactPlayer url={recipe.video} controls />
-  </section>
-)}
+<ReactPlayer src={recipe.video} controls width="100%" height="400px" />
 ```
 
-The video section is conditionally rendered — it only appears when `recipe.video` is a non-empty value. Recipes without a video tutorial simply skip this section.
+The player is always rendered in the component — it is not conditionally hidden when the video field is empty.

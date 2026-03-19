@@ -73,32 +73,35 @@ description: "Get Recipe Hub running locally in under 5 minutes"
 
 ## App routes
 
-The router is configured in `src/main.jsx` using React Router v7:
+The router is configured in `src/main.jsx` using React Router v7 with `BrowserRouter`, `Routes`, and `Route`:
 
 ```jsx src/main.jsx
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />,
-    errorElement: <NotFound />,
-    children: [
-      { index: true, element: <Home /> },
-      { path: "recipe/:id", element: <RecipeDetail /> },
-      { path: "favorites", element: <Favorites /> },
-      { path: "contact", element: <Contact /> }
-    ]
-  }
-])
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
+    <FavoriteProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<App />}>
+            <Route index element={<Home />} />
+            <Route path="favorites" element={<Favorites />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="recipe/:id" element={<RecipeDetail />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </FavoriteProvider>
+  </StrictMode>,
+);
 ```
 
 | Route | Component | Description |
 |-------|-----------|-------------|
 | `/` | `Home` | Landing page — random meals on load, search bar |
-| `/recipe/:id` | `RecipeDetail` | Full recipe view for a specific meal ID |
 | `/favorites` | `Favorites` | Grid of your saved favorite recipes |
-| `/contact` | `Contact` | Contact page |
-
-Any unmatched route renders `NotFound` via the `errorElement` on the root route.
+| `/contact` | `Contact` | Contact page (currently shows a placeholder message) |
+| `/recipe/:id` | `RecipeDetail` | Full recipe view for a specific meal ID |
+| `*` | `NotFound` | Shown for any unmatched route |
 
 ## Project structure
 

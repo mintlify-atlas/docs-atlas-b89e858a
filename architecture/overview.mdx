@@ -23,34 +23,30 @@ Each layer has a single responsibility and depends only on the layer below it.
 
 ## Routing structure
 
-Routing is configured in `src/main.jsx` using React Router's `createBrowserRouter`. The entire router is wrapped in `FavoriteProvider` so that favorites state is available on every page.
+Routing is configured in `src/main.jsx` using React Router v7's `BrowserRouter`, `Routes`, and `Route` components. The entire app is wrapped in `FavoriteProvider` so that favorites state is available on every page.
 
 ```jsx src/main.jsx
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />,
-    errorElement: <NotFound />,
-    children: [
-      { index: true, element: <Home /> },
-      { path: "recipe/:id", element: <RecipeDetail /> },
-      { path: "favorites", element: <Favorites /> },
-      { path: "contact", element: <Contact /> }
-    ]
-  }
-])
-
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <StrictMode>
     <FavoriteProvider>
-      <RouterProvider router={router} />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<App />}>
+            <Route index element={<Home />} />
+            <Route path="favorites" element={<Favorites />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="recipe/:id" element={<RecipeDetail />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </FavoriteProvider>
   </StrictMode>,
-)
+);
 ```
 
 <Note>
-  `FavoriteProvider` wraps `RouterProvider`, not the other way around. This ensures context is available to all pages, including those rendered inside the router.
+  `FavoriteProvider` wraps `BrowserRouter`, not the other way around. This ensures favorites context is available to all pages rendered inside the router.
 </Note>
 
 ## App layout shell
@@ -88,8 +84,8 @@ Pages are route-level components. They own data fetching (via hooks) and compose
 | `Home` | `/` | Displays search bar and recipe grid; uses `useRecipes` for fetch and random recipe logic |
 | `RecipeDetail` | `/recipe/:id` | Fetches and displays a single recipe; uses `useRecipeDetail` with the `id` URL param |
 | `Favorites` | `/favorites` | Reads favorite IDs from context, renders saved recipes |
-| `Contact` | `/contact` | Static contact form |
-| `NotFound` | `*` (errorElement) | Shown for unmatched routes or router errors |
+| `Contact` | `/contact` | Contact page (currently shows a placeholder message) |
+| `NotFound` | `*` | Shown for any unmatched route |
 
 ## Architecture layers
 

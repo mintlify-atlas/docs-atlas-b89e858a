@@ -26,48 +26,43 @@ Recipe Hub lets you search for recipes by name and browse random recipes on the 
 
 ## SearchBar component
 
-The `SearchBar` component handles user input and form submission. It validates that the query is non-empty before calling `onSearch`.
+`SearchBar` is a controlled input component. The parent (`Home`) owns the search string state and passes it down. The component itself is stateless — it simply renders the input and delegates all logic upward.
 
 ```jsx SearchBar.jsx
-import { useState } from 'react'
-import './SearchBar.css'
+import "./SearchBar.css"
 
-const SearchBar = ({ onSearch, setApiError }) => {
-  const [query, setQuery] = useState('')
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!query.trim()) {
-      setApiError('Please enter a recipe name to search.')
-      return
-    }
-    onSearch(query)
-  }
-
+export const SearchBar = ({ search, setSearch, onSearch, error }) => {
   return (
-    <form onSubmit={handleSubmit} className="search-bar">
-      <input
-        type="text"
-        placeholder="Search a recipe..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      <button type="submit">Search</button>
-    </form>
+    <div className="search-superior">
+      <div className="search-container">
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search Recipes..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <button onClick={onSearch}>Buscar</button>
+      </div>
+      {error && <p>{error}</p>}
+    </div>
   )
 }
-
-export default SearchBar
 ```
 
 ### Empty search validation
 
-If you submit the form with an empty input, `SearchBar` calls `setApiError` with a prompt instead of triggering a network request. The error is displayed inline on the page:
+Validation happens in `Home` before `fetchRecipes` is called. If the search string is empty or whitespace, `Home` sets a local `error` state and passes it to `SearchBar` as the `error` prop, which renders it below the input:
 
-```jsx
-if (!query.trim()) {
-  setApiError('Please enter a recipe name to search.')
-  return
+```jsx Home.jsx
+const handleClick = async () => {
+  if (search.trim() === "") {
+    setApiError("")
+    recipes.splice(0, recipes.length)
+    return setError("Tienes que escribir algo si quieres hacer una busqueda")
+  }
+  setError("")
+  return fetchRecipes(search)
 }
 ```
 
@@ -124,18 +119,30 @@ When the home page mounts, a `useEffect` calls `fetchRandomRecipes` automaticall
 
 ```jsx Home.jsx
 const Home = () => {
+  const [search, setSearch] = useState("")
+  const [error, setError] = useState("")
   const { recipes, loading, apiError, fetchRecipes, fetchRandomRecipes, setApiError } = useRecipes()
 
   useEffect(() => {
     fetchRandomRecipes()
   }, [])
 
+  const handleClick = async () => {
+    if (search.trim() === "") {
+      setApiError("")
+      recipes.splice(0, recipes.length)
+      return setError("Tienes que escribir algo si quieres hacer una busqueda")
+    }
+    setError("")
+    return fetchRecipes(search)
+  }
+
   return (
     <>
-      <SearchBar onSearch={fetchRecipes} setApiError={setApiError} />
-      {loading && <p>Loading...</p>}
-      {apiError && <p>{apiError}</p>}
-      {!loading && !apiError && <RecipeList recipes={recipes} />}
+      <SearchBar search={search} setSearch={setSearch} error={error} onSearch={handleClick} />
+      {loading && <p style={{ textAlign: "center", fontSize: "16px", color: "white" }}> Loading... </p>}
+      {apiError && <p style={{ textAlign: "center", fontSize: "16px", color: "red" }}>{apiError}</p>}
+      <RecipeList recipes={recipes} />
     </>
   )
 }

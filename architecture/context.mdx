@@ -80,20 +80,30 @@ This keeps the stored value in sync without any manual save step.
 
 ## Wrapping the app with FavoriteProvider
 
-`FavoriteProvider` is applied at the root in `src/main.jsx`, wrapping `RouterProvider` so that context is available to every page and component in the router.
+`FavoriteProvider` is applied at the root in `src/main.jsx`, wrapping `BrowserRouter` so that context is available to every page and component in the router.
 
 <Note>
-  `FavoriteProvider` must wrap `RouterProvider` — not the other way around. Placing the provider inside the router would cause it to unmount and remount on navigation, resetting favorites state.
+  `FavoriteProvider` must wrap `BrowserRouter` — not the other way around. Placing the provider inside the router would cause it to unmount and remount on navigation, resetting favorites state.
 </Note>
 
 ```jsx src/main.jsx
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <StrictMode>
     <FavoriteProvider>
-      <RouterProvider router={router} />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<App />}>
+            <Route index element={<Home />} />
+            <Route path="favorites" element={<Favorites />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="recipe/:id" element={<RecipeDetail />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </FavoriteProvider>
   </StrictMode>,
-)
+);
 ```
 
 ## Consuming the context
