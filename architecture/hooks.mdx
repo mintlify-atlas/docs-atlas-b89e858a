@@ -1,0 +1,144 @@
+---
+title: 'Custom hooks'
+description: 'useRecipes and useRecipeDetail: async state management for Recipe Hub.'
+---
+
+Recipe Hub uses two custom hooks to encapsulate all async data fetching. This keeps pages and components free of `useState`/`useEffect` boilerplate and makes the fetching logic independently testable.
+
+<Note>
+  Both hooks reset their state (recipes, errors) before each fetch. This prevents stale data from a previous search appearing briefly while a new request is in flight.
+</Note>
+
+---
+
+## useRecipes
+
+Manages fetching multiple recipes — either by search query or as a random selection. Used by the `Home` page.
+
+<Tip>
+  Import as a default: `import useRecipes from '../hooks/useRecipes'`
+</Tip>
+
+### Source
+
+```js src/hooks/useRecipes.js
+import { useState } from 'react'
+import { getRecipeByName, getRandomRecipes } from "../services/api";
+
+const useRecipes = () => {
+  const [recipes, setRecipes] = useState([])
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("")
+
+  const fetchRecipes = async (search) => {
+    setLoading(true)
+    setRecipes([]);
+    setApiError("");
+    try {
+      const data = await getRecipeByName(search)
+      setRecipes(data)
+    } catch (error) {
+      return setApiError(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchRandomRecipes = async () => {
+    setLoading(true);
+    setApiError("");
+    setRecipes([]);
+    try {
+      const data = await getRandomRecipes();
+      setRecipes(data);
+    } catch (error) {
+      setApiError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { recipes, loading, apiError, fetchRecipes, fetchRandomRecipes, setApiError }
+}
+
+export default useRecipes;
+```
+
+### Return values
+
+| Value | Type | Description |
+|---|---|---|
+| `recipes` | `Array<{ id, name, picture, category }>` | Normalized recipe objects from the last successful fetch |
+| `loading` | `boolean` | `true` while a fetch is in progress |
+| `apiError` | `string` | Error message from a failed fetch, or empty string |
+| `fetchRecipes` | `(search: string) => Promise<void>` | Fetches recipes matching the search query from TheMealDB |
+| `fetchRandomRecipes` | `() => Promise<void>` | Fetches 9 random recipes in parallel |
+| `setApiError` | `(msg: string) => void` | Allows the `SearchBar` component to set a validation error without triggering a fetch |
+
+### fetchRecipes vs fetchRandomRecipes
+
+<Tabs>
+  <Tab title="fetchRecipes">
+    Call `fetchRecipes(query)` when the user submits a search term. It calls `getRecipeByName` and populates `recipes` with all matching results. If no results are found, the service throws and `apiError` is set.
+  </Tab>
+  <Tab title="fetchRandomRecipes">
+    Call `fetchRandomRecipes()` on initial page load to show a curated grid of 9 random meals. It fires 9 parallel requests to the `/random.php` endpoint via `Promise.all`. There is no search query — results are non-deterministic.
+  </Tab>
+</Tabs>
+
+---
+
+## useRecipeDetail
+
+Fetches and manages the state for a single recipe. Used by the `RecipeDetail` page, which passes the `id` URL parameter directly to this hook.
+
+<Tip>
+  Import as a default: `import useRecipeDetail from '../hooks/useRecipeDetail'`
+</Tip>
+
+### Source
+
+```js src/hooks/useRecipeDetail.js
+import { useState, useEffect } from 'react'
+import { getRecipeById } from '../services/api'
+
+const useRecipeDetail = (id) => {
+  const [recipe, setRecipe] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const fetchRecipe = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const data = await getRecipeById(id)
+        setRecipe(data)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    if (id) fetchRecipe()
+  }, [id])
+
+  return { recipe, loading, error }
+}
+
+export default useRecipeDetail
+```
+
+### Return values
+
+| Value | Type | Description |
+|---|---|---|
+| `recipe` | `object \| null` | Full recipe detail object, or `null` before the first fetch completes |
+| `loading` | `boolean` | `true` while the fetch is in progress; starts as `true` |
+| `error` | `string` | Error message if the fetch fails, otherwise empty string |
+
+### Automatic re-fetch on id change
+
+The `useEffect` dependency array includes `id`. If the user navigates directly from one recipe detail page to another (changing the `:id` URL param), the hook automatically re-runs the fetch for the new ID without requiring a full page reload.
+
+The guard `if (id) fetchRecipe()` prevents a fetch from firing when `id` is `undefined` — for example, during the initial render before the router has resolved the param.

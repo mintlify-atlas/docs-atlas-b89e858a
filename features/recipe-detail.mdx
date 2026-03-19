@@ -1,0 +1,181 @@
+---
+title: 'Recipe detail'
+description: 'How the recipe detail page works, including ingredients, instructions, and video playback.'
+keywords: ['recipe detail', 'ingredients', 'instructions', 'video', 'react player', 'favorites']
+---
+
+Clicking a recipe card navigates to `/recipe/:id`, where the full recipe is displayed — image, category, ingredients, instructions, and an optional video tutorial.
+
+## Route and data fetching
+
+The `RecipeDetail` page reads the `id` parameter from the URL using React Router's `useParams`, then passes it to the `useRecipeDetail` hook to load the recipe.
+
+<CodeGroup>
+
+```jsx RecipeDetail.jsx
+import { useParams } from 'react-router-dom'
+import RecipeDetailCard from '../components/RecipeDetailCard'
+import useRecipeDetail from '../hooks/useRecipeDetail'
+
+const RecipeDetail = () => {
+  const { id } = useParams()
+  const { recipe, loading, error } = useRecipeDetail(id)
+
+  if (loading) return <p>Loading recipe...</p>
+  if (error) return <p>{error}</p>
+  if (!recipe) return null
+
+  return <RecipeDetailCard recipe={recipe} />
+}
+
+export default RecipeDetail
+```
+
+```js useRecipeDetail.js
+import { useState, useEffect } from 'react'
+import { getRecipeById } from '../services/api'
+
+const useRecipeDetail = (id) => {
+  const [recipe, setRecipe] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const fetchRecipe = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const data = await getRecipeById(id)
+        setRecipe(data)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    if (id) fetchRecipe()
+  }, [id])
+
+  return { recipe, loading, error }
+}
+
+export default useRecipeDetail
+```
+
+</CodeGroup>
+
+The hook re-runs whenever `id` changes, so navigating between recipe pages always loads fresh data.
+
+## Recipe object shape
+
+The `getRecipeById` API call returns a recipe object with the following structure:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique recipe identifier |
+| `name` | string | Recipe name |
+| `picture` | string | URL of the recipe image |
+| `category` | string | Meal category |
+| `instructions` | string | Full cooking instructions |
+| `video` | string \| null | YouTube URL for the tutorial, or null if unavailable |
+| `ingredients` | array | List of ingredient objects |
+
+Each entry in `ingredients` has:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Ingredient name |
+| `measure` | string | Quantity and unit (e.g. "2 tbsp") |
+
+## RecipeDetailCard component
+
+`RecipeDetailCard` renders all the recipe content. It also connects to the favorites system via the `useFavorites` hook.
+
+```jsx RecipeDetailCard.jsx
+import ReactPlayer from 'react-player'
+import { useFavorites } from '../context/FavoritesContext'
+import './RecipeDetailCard.css'
+
+const RecipeDetailCard = ({ recipe }) => {
+  const { toggleFavorite, isFavorite } = useFavorites()
+  const favorite = isFavorite(recipe.id)
+
+  return (
+    <div className="recipe-detail">
+      <h2>{recipe.name}</h2>
+      <img src={recipe.picture} alt={recipe.name} />
+      <span className="category">{recipe.category}</span>
+
+      <button
+        className={`favorite-btn ${favorite ? 'active' : ''}`}
+        onClick={() => toggleFavorite(recipe.id)}
+      >
+        {favorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+      </button>
+
+      <section className="ingredients">
+        <h3>Ingredients</h3>
+        <ul>
+          {recipe.ingredients.map((ing, i) => (
+            <li key={i}>{ing.measure} {ing.name}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="instructions">
+        <h3>Instructions</h3>
+        <p>{recipe.instructions}</p>
+      </section>
+
+      {recipe.video && (
+        <section className="video">
+          <h3>Video Tutorial</h3>
+          <ReactPlayer url={recipe.video} controls />
+        </section>
+      )}
+    </div>
+  )
+}
+
+export default RecipeDetailCard
+```
+
+## UI sections
+
+The detail page is laid out in the following order:
+
+<Steps>
+  <Step title="Header image">
+    The recipe name is displayed as a heading, followed by the recipe photo (`recipe.picture`).
+  </Step>
+  <Step title="Category tag">
+    A category label (e.g. **Chicken**, **Dessert**) is shown below the image.
+  </Step>
+  <Step title="Favorites button">
+    A toggle button lets you add or remove the recipe from your favorites. The button label and style change based on the current favorite state. See [Favorites](/features/favorites) for details.
+  </Step>
+  <Step title="Ingredients list">
+    Each ingredient is rendered as a list item combining `ing.measure` and `ing.name` — for example, "2 tbsp olive oil".
+  </Step>
+  <Step title="Instructions">
+    The full cooking instructions are displayed as a paragraph.
+  </Step>
+  <Step title="Video tutorial">
+    If `recipe.video` is present, a `ReactPlayer` embed is shown. If the recipe has no video, this section is hidden entirely.
+  </Step>
+</Steps>
+
+## Video playback
+
+Recipe Hub uses [ReactPlayer](https://github.com/cookpete/react-player) to embed YouTube video tutorials. It renders a responsive player with playback controls enabled.
+
+```jsx
+{recipe.video && (
+  <section className="video">
+    <h3>Video Tutorial</h3>
+    <ReactPlayer url={recipe.video} controls />
+  </section>
+)}
+```
+
+The video section is conditionally rendered — it only appears when `recipe.video` is a non-empty value. Recipes without a video tutorial simply skip this section.

@@ -1,0 +1,85 @@
+---
+title: "Introduction"
+description: "Discover, explore, and save your favorite meals with Recipe Hub"
+---
+
+# Recipe Hub
+
+**Recipe Hub** is a modern React application that connects to [TheMealDB API](https://www.themealdb.com/) to let you browse thousands of recipes from around the world. Search by name, explore random meals, dive into step-by-step instructions, and save your favorites for later — all in a fast, responsive dark UI.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get the app running locally in under 5 minutes
+  </Card>
+  <Card title="Core Features" icon="star" href="/features/search">
+    Explore search, recipe detail, and favorites
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Understand the component and state structure
+  </Card>
+  <Card title="API Integration" icon="plug" href="/api-integration/themealdb">
+    Learn how TheMealDB powers the app
+  </Card>
+</CardGroup>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Search recipes" icon="magnifying-glass">
+    Find any meal by name using the TheMealDB search endpoint. Results display immediately with photos and category tags.
+  </Card>
+  <Card title="Random discovery" icon="shuffle">
+    On every fresh load the home page fetches 9 random meals, so there's always something new to find.
+  </Card>
+  <Card title="Recipe detail" icon="book-open">
+    Full ingredient lists, step-by-step instructions, and an embedded YouTube video for every recipe.
+  </Card>
+  <Card title="Persistent favorites" icon="heart">
+    Add or remove meals from your favorites. Selections survive page refreshes thanks to localStorage.
+  </Card>
+  <Card title="Custom hooks" icon="code">
+    Data-fetching logic is encapsulated in `useRecipes` and `useRecipeDetail` — easy to test and reuse.
+  </Card>
+  <Card title="Responsive dark UI" icon="moon">
+    A hand-crafted dark theme works on any screen size, from mobile to widescreen.
+  </Card>
+</CardGroup>
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| UI framework | React 19 |
+| Routing | React Router DOM v7 |
+| Video playback | React Player |
+| Global state | Context API |
+| Local persistence | localStorage |
+| Build tool | Vite |
+| External data | TheMealDB REST API |
+
+## Project structure
+
+```
+src/
+├── pages/
+│   ├── Home.jsx           # Landing page with random/search results
+│   ├── RecipeDetail.jsx   # Single recipe view
+│   ├── Favorites.jsx      # Saved recipes list
+│   ├── Contact.jsx        # Contact page
+│   └── NotFound.jsx       # 404 fallback
+├── components/
+│   ├── RecipeCard.jsx     # Single meal card (image + name + category)
+│   ├── RecipeList.jsx     # Grid of RecipeCard components
+│   ├── RecipeDetailCard.jsx  # Full recipe details view
+│   ├── SearchBar.jsx      # Controlled search input
+│   ├── NavBar.jsx         # Site navigation
+│   └── Footer.jsx         # Footer
+├── context/
+│   └── FavoritesContext.jsx  # Global favorites state
+├── hooks/
+│   ├── useRecipes.js      # Search + random fetch logic
+│   └── useRecipeDetail.js # Single recipe fetch logic
+├── services/
+│   └── api.js             # TheMealDB API calls
+└── App.jsx                # Root layout with Outlet
+```

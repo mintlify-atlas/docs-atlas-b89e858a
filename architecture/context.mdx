@@ -1,0 +1,121 @@
+---
+title: 'Favorites context'
+description: 'Global favorites state using React Context API, with localStorage persistence.'
+---
+
+Recipe Hub uses React's Context API to share favorites state across the component tree without prop drilling. `FavoritesContext` stores an array of saved meal IDs and exposes functions to add, remove, and check favorites. The state is persisted to `localStorage` so it survives page refreshes.
+
+## Source
+
+```jsx src/context/FavoritesContext.jsx
+import { createContext, useState, useContext, useEffect } from "react";
+
+const FavoritesContext = createContext();
+
+export const FavoriteProvider = ({ children }) => {
+  const [favorites, setFavorite] = useState(() => {
+    const prev = localStorage.getItem("favorites");
+    return prev ? JSON.parse(prev) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("favorites", JSON.stringify(favorites));
+  }, [favorites]);
+
+  const toggleFavorite = (id) => {
+    setFavorite((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((f) => f !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
+  const isFavorite = (id) => favorites.includes(id);
+
+  return (
+    <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>
+      {children}
+    </FavoritesContext.Provider>
+  );
+};
+
+export const useFavorites = () => useContext(FavoritesContext);
+```
+
+## Context value interface
+
+| Value | Type | Description |
+|---|---|---|
+| `favorites` | `string[]` | Array of favorited meal IDs (e.g. `["52772", "53049"]`) |
+| `toggleFavorite` | `(id: string) => void` | Adds `id` to the array if not present; removes it if already present |
+| `isFavorite` | `(id: string) => boolean` | Returns `true` if `id` is in the favorites array |
+
+## localStorage persistence
+
+### Initialization
+
+The `useState` call uses a lazy initializer — a function rather than a plain value. This runs once on mount and reads the current `localStorage` value:
+
+```js
+const [favorites, setFavorite] = useState(() => {
+  const prev = localStorage.getItem("favorites");
+  return prev ? JSON.parse(prev) : [];
+});
+```
+
+If the key does not exist (first visit), the state initializes to an empty array.
+
+### Sync on change
+
+A `useEffect` watches the `favorites` array and writes it to `localStorage` on every change:
+
+```js
+useEffect(() => {
+  localStorage.setItem("favorites", JSON.stringify(favorites));
+}, [favorites]);
+```
+
+This keeps the stored value in sync without any manual save step.
+
+## Wrapping the app with FavoriteProvider
+
+`FavoriteProvider` is applied at the root in `src/main.jsx`, wrapping `RouterProvider` so that context is available to every page and component in the router.
+
+<Note>
+  `FavoriteProvider` must wrap `RouterProvider` — not the other way around. Placing the provider inside the router would cause it to unmount and remount on navigation, resetting favorites state.
+</Note>
+
+```jsx src/main.jsx
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <FavoriteProvider>
+      <RouterProvider router={router} />
+    </FavoriteProvider>
+  </StrictMode>,
+)
+```
+
+## Consuming the context
+
+Any component can access favorites state by calling the exported `useFavorites` hook. In `RecipeDetailCard`, it powers the favorite toggle button:
+
+```jsx src/components/RecipeDetailCard.jsx
+import { useFavorites } from '../context/FavoritesContext'
+
+const RecipeDetailCard = ({ recipe }) => {
+  const { toggleFavorite, isFavorite } = useFavorites()
+  const favorite = isFavorite(recipe.id)
+
+  return (
+    <button
+      className={`favorite-btn ${favorite ? 'active' : ''}`}
+      onClick={() => toggleFavorite(recipe.id)}
+    >
+      {favorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+    </button>
+  )
+}
+```
+
+`isFavorite` drives the button label and active CSS class; `toggleFavorite` handles both add and remove in a single call.

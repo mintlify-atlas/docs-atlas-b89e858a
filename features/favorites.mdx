@@ -1,0 +1,186 @@
+---
+title: 'Favorites'
+description: 'How the favorites system works, including localStorage persistence and managing saved recipes.'
+keywords: ['favorites', 'localStorage', 'saved recipes', 'FavoritesContext', 'toggleFavorite']
+---
+
+Recipe Hub lets you save recipes to a favorites list. Favorites persist across page refreshes using the browser's `localStorage`, so your saved recipes are still there when you return.
+
+<Note>
+  Favorites are stored as an array of meal IDs under the `localStorage` key `"favorites"`. Only IDs are stored — recipe data is fetched fresh when you view the favorites page.
+</Note>
+
+<Warning>
+  Favorites are stored in your browser's `localStorage`. Clearing your browser data or browsing in a private window will remove your saved favorites.
+</Warning>
+
+## FavoritesContext
+
+The favorites system is built around a React context that provides favorites state and actions to any component in the tree.
+
+```jsx FavoritesContext.jsx
+import { createContext, useState, useContext, useEffect } from 'react'
+
+const FavoritesContext = createContext()
+
+export const FavoriteProvider = ({ children }) => {
+  const [favorites, setFavorite] = useState(() => {
+    const prev = localStorage.getItem('favorites')
+    return prev ? JSON.parse(prev) : []
+  })
+
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(favorites))
+  }, [favorites])
+
+  const toggleFavorite = (id) => {
+    setFavorite((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((f) => f !== id)
+      }
+      return [...prev, id]
+    })
+  }
+
+  const isFavorite = (id) => favorites.includes(id)
+
+  return (
+    <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>
+      {children}
+    </FavoritesContext.Provider>
+  )
+}
+
+export const useFavorites = () => useContext(FavoritesContext)
+```
+
+## localStorage persistence
+
+The context handles persistence in two places:
+
+<Steps>
+  <Step title="Initialize from storage">
+    The `useState` initializer reads from `localStorage` when the provider first mounts. If a `"favorites"` entry exists, it's parsed and used as the initial state. Otherwise the list starts empty.
+
+    ```js
+    const [favorites, setFavorite] = useState(() => {
+      const prev = localStorage.getItem('favorites')
+      return prev ? JSON.parse(prev) : []
+    })
+    ```
+  </Step>
+  <Step title="Sync on every change">
+    A `useEffect` writes the current `favorites` array back to `localStorage` whenever it changes. This keeps storage in sync without any manual save step.
+
+    ```js
+    useEffect(() => {
+      localStorage.setItem('favorites', JSON.stringify(favorites))
+    }, [favorites])
+    ```
+  </Step>
+</Steps>
+
+## toggleFavorite
+
+Calling `toggleFavorite(id)` adds the ID if it isn't already in the list, or removes it if it is:
+
+```js
+const toggleFavorite = (id) => {
+  setFavorite((prev) => {
+    if (prev.includes(id)) {
+      return prev.filter((f) => f !== id) // remove
+    }
+    return [...prev, id] // add
+  })
+}
+```
+
+Because the update uses the functional form of `setFavorite`, it always operates on the latest state — avoiding stale closure issues.
+
+## isFavorite
+
+`isFavorite(id)` returns `true` if the given ID is in the favorites list. It's used in `RecipeDetailCard` to set the button label and active style:
+
+```jsx
+const { toggleFavorite, isFavorite } = useFavorites()
+const favorite = isFavorite(recipe.id)
+
+<button
+  className={`favorite-btn ${favorite ? 'active' : ''}`}
+  onClick={() => toggleFavorite(recipe.id)}
+>
+  {favorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+</button>
+```
+
+## Favorites page
+
+The **Favorites** page lists all your saved recipes. Each ID in the `favorites` array is rendered by a `FavoriteItem` component that fetches and displays the full recipe card.
+
+<CodeGroup>
+
+```jsx Favorites.jsx
+import { useFavorites } from '../context/FavoritesContext'
+import useRecipeDetail from '../hooks/useRecipeDetail'
+import RecipeCard from '../components/RecipeCard'
+
+const FavoriteItem = ({ id }) => {
+  const { recipe, loading } = useRecipeDetail(id)
+  if (loading) return <p>Loading...</p>
+  if (!recipe) return null
+  return (
+    <RecipeCard
+      id={recipe.id}
+      name={recipe.name}
+      picture={recipe.picture}
+      category={recipe.category}
+    />
+  )
+}
+
+const Favorites = () => {
+  const { favorites } = useFavorites()
+
+  if (!favorites.length) {
+    return (
+      <p>
+        You haven't saved any favorites yet. Browse recipes and click "Add to
+        Favorites"!
+      </p>
+    )
+  }
+
+  return (
+    <div className="favorites">
+      <h2>My Favorites</h2>
+      <div className="recipe-list">
+        {favorites.map((id) => (
+          <FavoriteItem key={id} id={id} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default Favorites
+```
+
+```jsx FavoriteItem.jsx
+const FavoriteItem = ({ id }) => {
+  const { recipe, loading } = useRecipeDetail(id)
+  if (loading) return <p>Loading...</p>
+  if (!recipe) return null
+  return (
+    <RecipeCard
+      id={recipe.id}
+      name={recipe.name}
+      picture={recipe.picture}
+      category={recipe.category}
+    />
+  )
+}
+```
+
+</CodeGroup>
+
+Each `FavoriteItem` uses the `useRecipeDetail` hook independently, so recipe cards load as their data arrives. If the favorites list is empty, a prompt is shown encouraging you to browse and save recipes.

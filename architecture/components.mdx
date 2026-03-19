@@ -1,0 +1,265 @@
+---
+title: 'Components'
+description: 'Presentational components used across Recipe Hub pages.'
+---
+
+All components live in `src/components/`. They are presentational by default — they receive props and render UI. The only exception is `RecipeDetailCard`, which reads from `FavoritesContext` directly.
+
+<Columns cols={2}>
+  <Card title="NavBar" icon="navigation">
+    Site-wide navigation links rendered in the app header.
+  </Card>
+  <Card title="Footer" icon="layout-bottom">
+    Static copyright footer rendered on every page.
+  </Card>
+  <Card title="SearchBar" icon="search">
+    Controlled search input with form submission and validation.
+  </Card>
+  <Card title="RecipeCard" icon="square">
+    Linked thumbnail card for a single recipe in a list.
+  </Card>
+  <Card title="RecipeList" icon="list">
+    Grid container that maps an array of recipes to RecipeCard elements.
+  </Card>
+  <Card title="RecipeDetailCard" icon="file-text">
+    Full recipe view with ingredients, instructions, video, and favorite toggle.
+  </Card>
+</Columns>
+
+---
+
+## NavBar
+
+Renders the primary navigation using `NavLink` from React Router. Active links receive the `active` class automatically.
+
+**Props:** none
+
+```jsx src/components/NavBar.jsx
+import { NavLink } from 'react-router-dom'
+import './NavBar.css'
+
+export const NavBar = () => {
+  return (
+    <nav>
+      <NavLink to="/" end>Home</NavLink>
+      <NavLink to="/favorites">Favorites</NavLink>
+      <NavLink to="/contact">Contact</NavLink>
+    </nav>
+  )
+}
+```
+
+<Note>
+  The `end` prop on the Home link ensures it only appears active on exactly `/`, not on `/favorites` or other child paths.
+</Note>
+
+---
+
+## Footer
+
+Static footer with copyright text. Powered by TheMealDB attribution.
+
+**Props:** none
+
+```jsx src/components/Footer.jsx
+import './Footer.css'
+
+const Footer = () => {
+  return (
+    <footer className="footer">
+      <p>© 2025 The Secret Recipe. Powered by TheMealDB.</p>
+    </footer>
+  )
+}
+
+export default Footer
+```
+
+---
+
+## SearchBar
+
+Controlled form input for recipe search. Validates that the query is not empty before calling `onSearch`. Delegates error messaging to the parent via `setApiError`.
+
+### Props
+
+| Prop | Type | Description |
+|---|---|---|
+| `onSearch` | `(query: string) => void` | Called with the trimmed search string on valid submit |
+| `setApiError` | `(msg: string) => void` | Called with a validation message when the input is empty |
+
+```jsx src/components/SearchBar.jsx
+import { useState } from 'react'
+import './SearchBar.css'
+
+const SearchBar = ({ onSearch, setApiError }) => {
+  const [query, setQuery] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!query.trim()) {
+      setApiError('Please enter a recipe name to search.')
+      return
+    }
+    onSearch(query)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="search-bar">
+      <input
+        type="text"
+        placeholder="Search a recipe..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <button type="submit">Search</button>
+    </form>
+  )
+}
+
+export default SearchBar
+```
+
+---
+
+## RecipeCard
+
+Rendered by `RecipeList` for each item in a recipe array. Wraps the entire card in a `Link` to the recipe detail page.
+
+### Props
+
+| Prop | Type | Description |
+|---|---|---|
+| `id` | `string` | Meal ID from TheMealDB; used to build the `/recipe/:id` link |
+| `name` | `string` | Recipe name shown below the image |
+| `picture` | `string` | Thumbnail image URL |
+| `category` | `string` | Meal category label |
+
+```jsx src/components/RecipeCard.jsx
+import { Link } from 'react-router-dom'
+import './RecipeCard.css'
+
+const RecipeCard = ({ id, name, picture, category }) => {
+  return (
+    <Link to={`/recipe/${id}`} className="recipe-card">
+      <img src={picture} alt={name} />
+      <div className="recipe-info">
+        <h3>{name}</h3>
+        <span className="category">{category}</span>
+      </div>
+    </Link>
+  )
+}
+
+export default RecipeCard
+```
+
+---
+
+## RecipeList
+
+Receives an array of recipe objects and renders a grid of `RecipeCard` elements. Returns `null` when the array is empty, so the page renders nothing (rather than an empty container) before a search is performed.
+
+### Props
+
+| Prop | Type | Description |
+|---|---|---|
+| `recipes` | `Array<{ id, name, picture, category }>` | Array of normalized recipe objects from the API service |
+
+```jsx src/components/RecipeList.jsx
+import RecipeCard from './RecipeCard'
+import './RecipeList.css'
+
+const RecipeList = ({ recipes }) => {
+  if (!recipes.length) return null
+
+  return (
+    <div className="recipe-list">
+      {recipes.map((recipe) => (
+        <RecipeCard
+          key={recipe.id}
+          id={recipe.id}
+          name={recipe.name}
+          picture={recipe.picture}
+          category={recipe.category}
+        />
+      ))}
+    </div>
+  )
+}
+
+export default RecipeList
+```
+
+---
+
+## RecipeDetailCard
+
+Displays the full detail view of a recipe. This is the only component that reads from context directly — it calls `useFavorites` to get `toggleFavorite` and `isFavorite`, enabling the favorite button without prop drilling.
+
+### Props
+
+| Prop | Type | Description |
+|---|---|---|
+| `recipe` | `object` | Full recipe object (see shape below) |
+
+**`recipe` object shape:**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Meal ID |
+| `name` | `string` | Recipe name |
+| `picture` | `string` | Image URL |
+| `category` | `string` | Meal category |
+| `instructions` | `string` | Full cooking instructions |
+| `video` | `string \| null` | YouTube URL, or null if unavailable |
+| `ingredients` | `Array<{ name: string, measure: string }>` | List of ingredients with measures |
+
+```jsx src/components/RecipeDetailCard.jsx
+import ReactPlayer from 'react-player'
+import { useFavorites } from '../context/FavoritesContext'
+import './RecipeDetailCard.css'
+
+const RecipeDetailCard = ({ recipe }) => {
+  const { toggleFavorite, isFavorite } = useFavorites()
+  const favorite = isFavorite(recipe.id)
+
+  return (
+    <div className="recipe-detail">
+      <h2>{recipe.name}</h2>
+      <img src={recipe.picture} alt={recipe.name} />
+      <span className="category">{recipe.category}</span>
+
+      <button
+        className={`favorite-btn ${favorite ? 'active' : ''}`}
+        onClick={() => toggleFavorite(recipe.id)}
+      >
+        {favorite ? '❤️ Remove from Favorites' : '🤍 Add to Favorites'}
+      </button>
+
+      <section className="ingredients">
+        <h3>Ingredients</h3>
+        <ul>
+          {recipe.ingredients.map((ing, i) => (
+            <li key={i}>{ing.measure} {ing.name}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="instructions">
+        <h3>Instructions</h3>
+        <p>{recipe.instructions}</p>
+      </section>
+
+      {recipe.video && (
+        <section className="video">
+          <h3>Video Tutorial</h3>
+          <ReactPlayer url={recipe.video} controls />
+        </section>
+      )}
+    </div>
+  )
+}
+
+export default RecipeDetailCard
+```

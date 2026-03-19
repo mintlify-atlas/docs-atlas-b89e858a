@@ -1,0 +1,115 @@
+---
+title: 'Architecture overview'
+description: 'How Recipe Hub is structured: pages, hooks, services, and components working together.'
+---
+
+Recipe Hub follows a layered architecture with a clean separation of concerns. Data flows in one direction — from the external API through services and hooks into pages and finally into presentational components.
+
+## Data flow
+
+```
+TheMealDB API
+     ↓
+src/services/api.js      — raw fetch calls, response normalization
+     ↓
+src/hooks/               — async state management (loading, error, data)
+     ↓
+src/pages/               — route-level orchestration
+     ↓
+src/components/          — presentational rendering
+```
+
+Each layer has a single responsibility and depends only on the layer below it.
+
+## Routing structure
+
+Routing is configured in `src/main.jsx` using React Router's `createBrowserRouter`. The entire router is wrapped in `FavoriteProvider` so that favorites state is available on every page.
+
+```jsx src/main.jsx
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <App />,
+    errorElement: <NotFound />,
+    children: [
+      { index: true, element: <Home /> },
+      { path: "recipe/:id", element: <RecipeDetail /> },
+      { path: "favorites", element: <Favorites /> },
+      { path: "contact", element: <Contact /> }
+    ]
+  }
+])
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <FavoriteProvider>
+      <RouterProvider router={router} />
+    </FavoriteProvider>
+  </StrictMode>,
+)
+```
+
+<Note>
+  `FavoriteProvider` wraps `RouterProvider`, not the other way around. This ensures context is available to all pages, including those rendered inside the router.
+</Note>
+
+## App layout shell
+
+`App.jsx` defines the persistent layout shared across all routes. It renders a header with the site title and navigation, a main content area using `<Outlet />` (where child routes render), and a footer.
+
+```jsx src/App.jsx
+function App() {
+  return (
+    <>
+      <header>
+        <h1>The Secret Recipe</h1>
+        <h3>Discover, explore and save your favorite recipes</h3>
+        <NavBar />
+      </header>
+      <main>
+        <Outlet />
+      </main>
+      <footer>
+        <Footer />
+      </footer>
+    </>
+  )
+}
+```
+
+`<Outlet />` is the React Router placeholder that renders the matched child route. All pages mount and unmount here while the header and footer remain constant.
+
+## Pages
+
+Pages are route-level components. They own data fetching (via hooks) and compose presentational components to build their UI.
+
+| Page | Path | Responsibility |
+|---|---|---|
+| `Home` | `/` | Displays search bar and recipe grid; uses `useRecipes` for fetch and random recipe logic |
+| `RecipeDetail` | `/recipe/:id` | Fetches and displays a single recipe; uses `useRecipeDetail` with the `id` URL param |
+| `Favorites` | `/favorites` | Reads favorite IDs from context, renders saved recipes |
+| `Contact` | `/contact` | Static contact form |
+| `NotFound` | `*` (errorElement) | Shown for unmatched routes or router errors |
+
+## Architecture layers
+
+| Layer | Location | Role |
+|---|---|---|
+| API service | `src/services/api.js` | Fetches from TheMealDB, validates responses, normalizes data shapes |
+| Custom hooks | `src/hooks/` | Manage `loading`, `error`, and `data` state for async operations |
+| Context | `src/context/` | Provides global state (favorites) shared across unrelated components |
+| Pages | `src/pages/` | Orchestrate hooks and compose components for each route |
+| Components | `src/components/` | Presentational; receive props and render UI with no direct API or hook calls |
+
+## Component composition pattern
+
+Pages orchestrate; components are presentational. A page like `Home` calls `useRecipes`, holds state, and passes data down:
+
+```
+Home (page)
+├── SearchBar — calls onSearch prop → triggers useRecipes.fetchRecipes
+└── RecipeList — receives recipes array as prop
+    └── RecipeCard × N — receives id, name, picture, category as props
+```
+
+The one exception is `RecipeDetailCard`, which consumes `useFavorites` from context directly to toggle favorites inline.

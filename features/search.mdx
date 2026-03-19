@@ -1,0 +1,209 @@
+---
+title: 'Search recipes'
+description: 'How recipe search works in Recipe Hub, from the search bar to the results grid.'
+keywords: ['search', 'recipes', 'search bar', 'recipe list', 'random recipes']
+---
+
+Recipe Hub lets you search for recipes by name and browse random recipes on the home page. This page explains how search works end-to-end.
+
+## How it works
+
+<Steps>
+  <Step title="Type a recipe name">
+    The `SearchBar` component renders a text input. As you type, the query is tracked in local state.
+  </Step>
+  <Step title="Submit the form">
+    Pressing **Search** or hitting Enter triggers `handleSubmit`. If the input is empty, an error message appears instead of firing the request.
+  </Step>
+  <Step title="Results appear in the grid">
+    The `useRecipes` hook calls the API and updates state. The `RecipeList` component renders a card for each result.
+  </Step>
+</Steps>
+
+<Note>
+  Search is case-insensitive. TheMealDB handles normalization on the API side, so "chicken", "Chicken", and "CHICKEN" all return the same results.
+</Note>
+
+## SearchBar component
+
+The `SearchBar` component handles user input and form submission. It validates that the query is non-empty before calling `onSearch`.
+
+```jsx SearchBar.jsx
+import { useState } from 'react'
+import './SearchBar.css'
+
+const SearchBar = ({ onSearch, setApiError }) => {
+  const [query, setQuery] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!query.trim()) {
+      setApiError('Please enter a recipe name to search.')
+      return
+    }
+    onSearch(query)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="search-bar">
+      <input
+        type="text"
+        placeholder="Search a recipe..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <button type="submit">Search</button>
+    </form>
+  )
+}
+
+export default SearchBar
+```
+
+### Empty search validation
+
+If you submit the form with an empty input, `SearchBar` calls `setApiError` with a prompt instead of triggering a network request. The error is displayed inline on the page:
+
+```jsx
+if (!query.trim()) {
+  setApiError('Please enter a recipe name to search.')
+  return
+}
+```
+
+## useRecipes hook
+
+The `useRecipes` hook owns all recipe state — the list, loading flag, and any API error. It exposes two fetch functions: `fetchRecipes` for search queries and `fetchRandomRecipes` for the home page on load.
+
+```js useRecipes.js
+import { useState } from 'react'
+import { getRecipeByName, getRandomRecipes } from '../services/api'
+
+const useRecipes = () => {
+  const [recipes, setRecipes] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [apiError, setApiError] = useState('')
+
+  const fetchRecipes = async (search) => {
+    setLoading(true)
+    setRecipes([])
+    setApiError('')
+    try {
+      const data = await getRecipeByName(search)
+      setRecipes(data)
+    } catch (error) {
+      return setApiError(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchRandomRecipes = async () => {
+    setLoading(true)
+    setApiError('')
+    setRecipes([])
+    try {
+      const data = await getRandomRecipes()
+      setRecipes(data)
+    } catch (error) {
+      setApiError(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { recipes, loading, apiError, fetchRecipes, fetchRandomRecipes, setApiError }
+}
+
+export default useRecipes
+```
+
+## Random recipes on home page load
+
+When the home page mounts, a `useEffect` calls `fetchRandomRecipes` automatically. This gives users something to browse without needing to search first.
+
+```jsx Home.jsx
+const Home = () => {
+  const { recipes, loading, apiError, fetchRecipes, fetchRandomRecipes, setApiError } = useRecipes()
+
+  useEffect(() => {
+    fetchRandomRecipes()
+  }, [])
+
+  return (
+    <>
+      <SearchBar onSearch={fetchRecipes} setApiError={setApiError} />
+      {loading && <p>Loading...</p>}
+      {apiError && <p>{apiError}</p>}
+      {!loading && !apiError && <RecipeList recipes={recipes} />}
+    </>
+  )
+}
+```
+
+The empty dependency array `[]` ensures `fetchRandomRecipes` runs once on mount. Any subsequent search replaces the random recipes with search results.
+
+## Recipe grid components
+
+Search results are rendered by `RecipeList`, which maps over the `recipes` array and renders a `RecipeCard` for each entry.
+
+<CodeGroup>
+
+```jsx RecipeList.jsx
+import RecipeCard from './RecipeCard'
+import './RecipeList.css'
+
+const RecipeList = ({ recipes }) => {
+  if (!recipes.length) return null
+
+  return (
+    <div className="recipe-list">
+      {recipes.map((recipe) => (
+        <RecipeCard
+          key={recipe.id}
+          id={recipe.id}
+          name={recipe.name}
+          picture={recipe.picture}
+          category={recipe.category}
+        />
+      ))}
+    </div>
+  )
+}
+
+export default RecipeList
+```
+
+```jsx RecipeCard.jsx
+import { Link } from 'react-router-dom'
+import './RecipeCard.css'
+
+const RecipeCard = ({ id, name, picture, category }) => {
+  return (
+    <Link to={`/recipe/${id}`} className="recipe-card">
+      <img src={picture} alt={name} />
+      <div className="recipe-info">
+        <h3>{name}</h3>
+        <span className="category">{category}</span>
+      </div>
+    </Link>
+  )
+}
+
+export default RecipeCard
+```
+
+</CodeGroup>
+
+Each `RecipeCard` links to `/recipe/:id`, which opens the [recipe detail page](/features/recipe-detail).
+
+## Recipe card data
+
+Each object in the `recipes` array has the following shape:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique recipe identifier |
+| `name` | string | Recipe name |
+| `picture` | string | URL of the recipe image |
+| `category` | string | Meal category (e.g. "Chicken", "Dessert") |

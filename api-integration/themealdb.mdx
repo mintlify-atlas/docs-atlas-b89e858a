@@ -1,0 +1,246 @@
+---
+title: 'TheMealDB API'
+description: 'Reference for the three TheMealDB endpoints used in Recipe Hub, including request parameters and response shapes.'
+keywords: ['themealdb', 'api', 'endpoints', 'recipes', 'meals']
+---
+
+TheMealDB is a free, open meal and recipe database. The v1 API requires no API key or authentication, making it well-suited for learning projects and demos.
+
+<Note>
+  The v1 API (`/api/json/v1/1/`) is free and has no documented rate limits. Do not use it in production applications with high traffic — switch to a v2 key or a self-hosted mirror for anything beyond demos.
+</Note>
+
+**Base URL**
+
+```
+https://themealdb.com/api/json/v1/1/
+```
+
+Recipe Hub uses three endpoints from this API:
+
+<CardGroup cols={3}>
+  <Card title="Search by name" icon="magnifying-glass" href="#search-by-name">
+    Find meals matching a name query.
+  </Card>
+  <Card title="Lookup by ID" icon="fingerprint" href="#lookup-by-id">
+    Fetch full detail for a single meal.
+  </Card>
+  <Card title="Random meal" icon="shuffle" href="#random-meal">
+    Retrieve a random meal from the database.
+  </Card>
+</CardGroup>
+
+---
+
+## Search by name
+
+```
+GET https://themealdb.com/api/json/v1/1/search.php?s={name}
+```
+
+Returns all meals whose name matches the search string.
+
+### Parameters
+
+<ParamField query="s" type="string" required>
+  The meal name to search for. Partial matches are supported (e.g., `chicken` returns all meals containing "chicken").
+</ParamField>
+
+### Example request
+
+```bash example request
+curl "https://themealdb.com/api/json/v1/1/search.php?s=chicken"
+```
+
+### Raw API response shape
+
+The API returns a `meals` array. Each object contains the full meal record:
+
+```json example response
+{
+  "meals": [
+    {
+      "idMeal": "52772",
+      "strMeal": "Teriyaki Chicken Casserole",
+      "strMealThumb": "https://www.themealdb.com/images/media/meals/wvpsxx1468256321.jpg",
+      "strCategory": "Chicken",
+      "strInstructions": "Preheat oven to 350°...",
+      "strYoutube": "https://www.youtube.com/watch?v=4aZr5hZXP_s",
+      "strIngredient1": "soy sauce",
+      "strIngredient2": "water",
+      "strIngredient3": "brown sugar",
+      "strIngredient4": "",
+      "strMeasure1": "3/4 cup",
+      "strMeasure2": "1/2 cup",
+      "strMeasure3": "1/4 cup",
+      "strMeasure4": ""
+    }
+  ]
+}
+```
+
+<Note>
+  TheMealDB always returns exactly 20 ingredient fields (`strIngredient1`–`strIngredient20`) and 20 measure fields (`strMeasure1`–`strMeasure20`) per meal. Unused slots are empty strings or `null`. The app loops over all 20 and filters out the empty ones before returning them to the UI.
+</Note>
+
+### What the app returns
+
+The service layer maps the raw response to a leaner shape before passing it to the UI:
+
+<ResponseField name="id" type="string" required>
+  TheMealDB meal ID (`idMeal`).
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Meal name (`strMeal`).
+</ResponseField>
+
+<ResponseField name="picture" type="string" required>
+  URL to the meal thumbnail image (`strMealThumb`).
+</ResponseField>
+
+<ResponseField name="category" type="string" required>
+  Meal category, e.g. "Chicken", "Dessert" (`strCategory`).
+</ResponseField>
+
+---
+
+## Lookup by ID
+
+```
+GET https://themealdb.com/api/json/v1/1/lookup.php?i={id}
+```
+
+Returns the full detail record for a single meal identified by its TheMealDB ID.
+
+### Parameters
+
+<ParamField query="i" type="string" required>
+  The TheMealDB meal ID. Obtain this from a search or random result (`idMeal`).
+</ParamField>
+
+### Example request
+
+```bash example request
+curl "https://themealdb.com/api/json/v1/1/lookup.php?i=52772"
+```
+
+### Raw API response shape
+
+The response structure is identical to the search endpoint — a `meals` array with one item:
+
+```json example response
+{
+  "meals": [
+    {
+      "idMeal": "52772",
+      "strMeal": "Teriyaki Chicken Casserole",
+      "strMealThumb": "https://www.themealdb.com/images/media/meals/wvpsxx1468256321.jpg",
+      "strCategory": "Chicken",
+      "strInstructions": "Preheat oven to 350°...",
+      "strYoutube": "https://www.youtube.com/watch?v=4aZr5hZXP_s",
+      "strIngredient1": "soy sauce",
+      "strIngredient2": "water",
+      "strIngredient3": "brown sugar",
+      "strIngredient4": "",
+      "strMeasure1": "3/4 cup",
+      "strMeasure2": "1/2 cup",
+      "strMeasure3": "1/4 cup",
+      "strMeasure4": ""
+    }
+  ]
+}
+```
+
+### What the app returns
+
+The lookup response is mapped to an extended shape that includes the full recipe detail:
+
+<ResponseField name="id" type="string" required>
+  TheMealDB meal ID (`idMeal`).
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Meal name (`strMeal`).
+</ResponseField>
+
+<ResponseField name="picture" type="string" required>
+  URL to the meal thumbnail image (`strMealThumb`).
+</ResponseField>
+
+<ResponseField name="category" type="string" required>
+  Meal category (`strCategory`).
+</ResponseField>
+
+<ResponseField name="instructions" type="string" required>
+  Step-by-step cooking instructions (`strInstructions`).
+</ResponseField>
+
+<ResponseField name="video" type="string">
+  YouTube video URL for the recipe (`strYoutube`). May be empty.
+</ResponseField>
+
+<ResponseField name="ingredients" type="object[]" required>
+  Parsed ingredient list. Each item is an object:
+  <Expandable title="properties">
+    <ResponseField name="name" type="string" required>
+      Ingredient name (from `strIngredient1`–`strIngredient20`).
+    </ResponseField>
+    <ResponseField name="measure" type="string" required>
+      Quantity and unit (from `strMeasure1`–`strMeasure20`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Random meal
+
+```
+GET https://themealdb.com/api/json/v1/1/random.php
+```
+
+Returns a single randomly chosen meal each time it is called.
+
+### Parameters
+
+This endpoint takes no parameters.
+
+### Example request
+
+```bash example request
+curl "https://themealdb.com/api/json/v1/1/random.php"
+```
+
+### How the app uses this endpoint
+
+To populate the home page grid, Recipe Hub fires **9 parallel requests** using `Promise.all`:
+
+```javascript parallel random fetch
+const requests = Array.from({ length: 9 }, () =>
+  fetch(`${URL_BASE}random.php`)
+);
+const responses = await Promise.all(requests);
+```
+
+Because each request is independent, they can all be in-flight simultaneously, which is faster than making them sequentially.
+
+### What the app returns
+
+Each random meal is mapped to the same lean shape used by the search endpoint:
+
+<ResponseField name="id" type="string" required>
+  TheMealDB meal ID.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Meal name.
+</ResponseField>
+
+<ResponseField name="picture" type="string" required>
+  URL to the meal thumbnail image.
+</ResponseField>
+
+<ResponseField name="category" type="string" required>
+  Meal category.
+</ResponseField>
