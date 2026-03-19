@@ -1,0 +1,65 @@
+{
+  "projectType": "frontend",
+  "projectName": "Recipe Hub",
+  "projectDescription": "A React application that lets users discover, explore, and save their favorite meals using TheMealDB API.",
+  "theme": "almond",
+  "primaryColor": "#f4742c",
+  "lightColor": "#ebae28",
+  "darkColor": "#c1c5c6",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/search",
+              "features/recipe-detail",
+              "features/favorites"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/components",
+              "architecture/hooks",
+              "architecture/context"
+            ]
+          },
+          {
+            "group": "API Integration",
+            "pages": [
+              "api-integration/themealdb",
+              "api-integration/services"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Search recipes by name via TheMealDB API",
+    "Random meal discovery on initial load",
+    "Dynamic recipe detail pages with ingredients and instructions",
+    "YouTube video playback for recipes via React Player",
+    "Add and remove favorites with localStorage persistence",
+    "Dark modern UI with fully responsive design",
+    "Optimized state management with custom hooks",
+    "Client-side routing with React Router DOM"
+  ],
+  "publicApiSurface": [
+    "getRecipeByName(search) - Search meals by name",
+    "getRecipeById(id) - Fetch full recipe details by ID",
+    "getRandomRecipes() - Fetch 9 random meals",
+    "useRecipes() - Custom hook for recipe search/random state",
+    "useRecipeDetail() - Custom hook for single recipe state",
+    "FavoriteProvider - Context provider for favorites state",
+    "useFavorites() - Hook to access/toggle favorites"
+  ]
+}
